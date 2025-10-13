@@ -16,6 +16,8 @@ import {
   DollarSign,
   ShoppingBag,
   Tag,
+  Moon,
+  Sun,
 } from "lucide-react";
 import {
   LineChart,
@@ -40,13 +42,18 @@ import Users from "./Users";
 
 const Dashboard = () => {
   const [activePage, setActivePage] = useState("dashboard");
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const { logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    logout(); // Clear user session from context
-    localStorage.removeItem("token"); // Just in case, remove token manually too
-    navigate("/login"); // Redirect to login page
+    logout();
+    localStorage.removeItem("token");
+    navigate("/login");
+  };
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
   };
 
   const {
@@ -62,6 +69,36 @@ const Dashboard = () => {
 
   const stats = apiResponse?.data;
   const chartData = stats?.monthlyData || stats?.chartData || [];
+
+  // Theme-based colors
+  const theme = {
+    light: {
+      background: "#f5f7fb",
+      sidebar: "#004aad",
+      card: "#ffffff",
+      text: {
+        primary: "#1f2937",
+        secondary: "#6b7280",
+        inverse: "#ffffff"
+      },
+      border: "#e5e7eb",
+      shadow: "0 2px 8px rgba(0,0,0,0.1)"
+    },
+    dark: {
+      background: "#1a1a1a",
+      sidebar: "#0a2540",
+      card: "#2d2d2d",
+      text: {
+        primary: "#ffffff",
+        secondary: "#a0a0a0",
+        inverse: "#ffffff"
+      },
+      border: "#404040",
+      shadow: "0 2px 8px rgba(0,0,0,0.3)"
+    }
+  };
+
+  const currentTheme = isDarkMode ? theme.dark : theme.light;
 
   const statCards = [
     {
@@ -133,19 +170,22 @@ const Dashboard = () => {
       display: "flex",
       height: "100vh",
       width: "100vw",
-      backgroundColor: "#f5f7fb",
+      backgroundColor: currentTheme.background,
       overflow: "hidden",
       fontFamily: "'Poppins', sans-serif",
+      color: currentTheme.text.primary,
+      transition: "all 0.3s ease",
     },
     sidebar: {
       width: "230px",
-      backgroundColor: "#004aad",
-      color: "white",
+      backgroundColor: currentTheme.sidebar,
+      color: currentTheme.text.inverse,
       display: "flex",
       flexDirection: "column",
       justifyContent: "space-between",
       padding: "20px",
       boxShadow: "2px 0 6px rgba(0,0,0,0.1)",
+      transition: "all 0.3s ease",
     },
     link: {
       display: "flex",
@@ -153,10 +193,10 @@ const Dashboard = () => {
       gap: "10px",
       padding: "10px 15px",
       borderRadius: "8px",
-      color: "white",
+      color: currentTheme.text.inverse,
       cursor: "pointer",
       fontSize: "0.95rem",
-      transition: "background 0.3s",
+      transition: "all 0.3s ease",
     },
     activeLink: {
       backgroundColor: "rgba(255,255,255,0.2)",
@@ -167,11 +207,25 @@ const Dashboard = () => {
       borderRadius: "8px",
       cursor: "pointer",
       fontSize: "0.95rem",
+      transition: "all 0.3s ease",
     },
     main: {
       flex: 1,
       padding: "30px",
       overflowY: "auto",
+      transition: "all 0.3s ease",
+    },
+    themeToggle: {
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      padding: "10px 15px",
+      borderRadius: "8px",
+      color: currentTheme.text.inverse,
+      cursor: "pointer",
+      fontSize: "0.95rem",
+      transition: "all 0.3s ease",
+      marginBottom: "10px",
     },
   };
 
@@ -181,10 +235,10 @@ const Dashboard = () => {
         return (
           <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h1 style={{ fontSize: "1.8rem", fontWeight: "bold", color: "#003366" }}>
+              <h1 style={{ fontSize: "1.8rem", fontWeight: "bold", color: currentTheme.text.primary }}>
                 Dashboard Analytics
               </h1>
-              <span style={{ color: "#555", fontSize: "0.9rem" }}>
+              <span style={{ color: currentTheme.text.secondary, fontSize: "0.9rem" }}>
                 Last updated: {new Date().toLocaleString()}
               </span>
             </div>
@@ -202,18 +256,20 @@ const Dashboard = () => {
                 <div
                   key={index}
                   style={{
-                    backgroundColor: "white",
+                    backgroundColor: currentTheme.card,
                     borderRadius: "12px",
                     padding: "20px",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                    boxShadow: currentTheme.shadow,
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
+                    border: `1px solid ${currentTheme.border}`,
+                    transition: "all 0.3s ease",
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: "0.9rem", color: "#666" }}>{stat.title}</div>
-                    <div style={{ fontSize: "2rem", fontWeight: "bold", color: "#003366" }}>
+                    <div style={{ fontSize: "0.9rem", color: currentTheme.text.secondary }}>{stat.title}</div>
+                    <div style={{ fontSize: "2rem", fontWeight: "bold", color: currentTheme.text.primary }}>
                       {stat.value}
                     </div>
                     {stat.change !== 0 && (
@@ -238,19 +294,27 @@ const Dashboard = () => {
             >
               <div
                 style={{
-                  backgroundColor: "white",
+                  backgroundColor: currentTheme.card,
                   borderRadius: "12px",
                   padding: "20px",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  boxShadow: currentTheme.shadow,
+                  border: `1px solid ${currentTheme.border}`,
+                  transition: "all 0.3s ease",
                 }}
               >
-                <h3 style={{ color: "#003366", marginBottom: "10px" }}>Monthly Growth</h3>
+                <h3 style={{ color: currentTheme.text.primary, marginBottom: "10px" }}>Monthly Growth</h3>
                 <ResponsiveContainer width="100%" height="90%">
                   <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
+                    <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.border} />
+                    <XAxis dataKey="name" stroke={currentTheme.text.secondary} />
+                    <YAxis stroke={currentTheme.text.secondary} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: currentTheme.card,
+                        border: `1px solid ${currentTheme.border}`,
+                        color: currentTheme.text.primary
+                      }} 
+                    />
                     <Line type="monotone" dataKey="users" stroke="#004aad" strokeWidth={2} />
                     <Line type="monotone" dataKey="orders" stroke="#00b4d8" strokeWidth={2} />
                     <Line type="monotone" dataKey="products" stroke="#0077b6" strokeWidth={2} />
@@ -260,19 +324,27 @@ const Dashboard = () => {
 
               <div
                 style={{
-                  backgroundColor: "white",
+                  backgroundColor: currentTheme.card,
                   borderRadius: "12px",
                   padding: "20px",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  boxShadow: currentTheme.shadow,
+                  border: `1px solid ${currentTheme.border}`,
+                  transition: "all 0.3s ease",
                 }}
               >
-                <h3 style={{ color: "#003366", marginBottom: "10px" }}>Monthly Overview</h3>
+                <h3 style={{ color: currentTheme.text.primary, marginBottom: "10px" }}>Monthly Overview</h3>
                 <ResponsiveContainer width="100%" height="90%">
                   <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
+                    <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.border} />
+                    <XAxis dataKey="name" stroke={currentTheme.text.secondary} />
+                    <YAxis stroke={currentTheme.text.secondary} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: currentTheme.card,
+                        border: `1px solid ${currentTheme.border}`,
+                        color: currentTheme.text.primary
+                      }} 
+                    />
                     <Bar dataKey="products" fill="#004aad" />
                     <Bar dataKey="shops" fill="#00b4d8" />
                     <Bar dataKey="orders" fill="#0077b6" />
@@ -283,21 +355,30 @@ const Dashboard = () => {
           </>
         );
       case "users":
-        return <Users />;
+        return <Users isDarkMode={isDarkMode} />;
       case "products":
-        return <Products />;
+        return <Products isDarkMode={isDarkMode} />;
       case "orders":
-        return <Orders />;
+        return <Orders isDarkMode={isDarkMode} />;
       case "shops":
-        return <Shops />;
+        return <Shops isDarkMode={isDarkMode} />;
       case "promotions":
-        return <Promotions />;
+        return <Promotions isDarkMode={isDarkMode} />;
       case "settings":
         return (
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
-            <div className="bg-white p-8 rounded-lg shadow text-center">
-              <p className="text-gray-600">Settings page - Under development</p>
+            <h1 style={{ fontSize: "1.5rem", fontWeight: "bold", color: currentTheme.text.primary, marginBottom: "24px" }}>
+              Settings
+            </h1>
+            <div style={{ 
+              backgroundColor: currentTheme.card, 
+              padding: "32px", 
+              borderRadius: "8px", 
+              boxShadow: currentTheme.shadow,
+              border: `1px solid ${currentTheme.border}`,
+              textAlign: "center" 
+            }}>
+              <p style={{ color: currentTheme.text.secondary }}>Settings page - Under development</p>
             </div>
           </div>
         );
@@ -314,7 +395,9 @@ const Dashboard = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "#555",
+          color: currentTheme.text.secondary,
+          backgroundColor: currentTheme.background,
+          transition: "all 0.3s ease",
         }}
       >
         <RefreshCw style={{ marginRight: "8px", animation: "spin 1s linear infinite" }} />
@@ -332,9 +415,11 @@ const Dashboard = () => {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
+          backgroundColor: currentTheme.background,
+          transition: "all 0.3s ease",
         }}
       >
-        <div style={{ color: "red", marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ color: "#dc2626", marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
           <AlertCircle />
           <span>Error loading dashboard data</span>
         </div>
@@ -382,16 +467,39 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* ✅ Logout Button */}
-        <div
-          style={{
-            ...styles.link,
-            backgroundColor: "rgba(255,255,255,0.2)",
-          }}
-          onClick={handleLogout}
-        >
-          <LogOut size={18} />
-          Logout
+        <div>
+          {/* Theme Toggle Button */}
+          <div
+            style={styles.themeToggle}
+            onClick={toggleTheme}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+            {isDarkMode ? "Light Mode" : "Dark Mode"}
+          </div>
+
+          {/* Logout Button */}
+          <div
+            style={{
+              ...styles.link,
+              backgroundColor: "rgba(255,255,255,0.2)",
+            }}
+            onClick={handleLogout}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.3)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+            }}
+          >
+            <LogOut size={18} />
+            Logout
+          </div>
         </div>
       </aside>
 
