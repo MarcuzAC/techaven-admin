@@ -1,3 +1,4 @@
+// services/api.js
 import axios from 'axios';
 
 const API_BASE_URL = 'https://techaven-backend.onrender.com';
@@ -61,7 +62,6 @@ export const authAPI = {
 
   getProfile: () => api.get('/auth/me'),
 };
-
 
 // ------------------------- USERS -------------------------
 export const usersAPI = {

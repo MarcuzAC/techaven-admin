@@ -1,7 +1,7 @@
+// components/Login.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { Smartphone, Laptop, Headphones } from 'lucide-react';
-import { authAPI } from '../services/api';
+import { Smartphone, Laptop, Headphones, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
@@ -9,105 +9,151 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { setIsAuthenticated, isAuthenticated } = useAuth();
+  const { isAuthenticated, login, theme, toggleTheme } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if already logged in
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
   useEffect(() => {
-    // Load Poppins font and set body styles
-    const link = document.createElement('link');
-    link.href =
-      'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap';
-    link.rel = 'stylesheet';
-    document.head.appendChild(link);
-
-    document.body.style.margin = '0';
-    document.body.style.height = '100vh';
-    document.documentElement.style.height = '100vh';
-    document.body.style.backgroundColor = '#fff';
-    document.body.style.fontFamily = "'Poppins', sans-serif";
-
-    return () => {
-      document.head.removeChild(link);
-      document.body.style = {};
-    };
-  }, []);
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    try {
-      const data = await authAPI.login({
-        email: credentials.email,
-        password: credentials.password,
-      });
+    const result = await login(credentials);
+    
+    if (result.success) {
+      console.log('Login successful, redirecting...');
+    } else {
+      setError(result.error || 'Login failed. Please try again.');
+    }
+    setLoading(false);
+  };
 
-      if (data?.access_token && data?.user_type === 'admin') {
-        localStorage.setItem('admin_token', data.access_token);
-        setIsAuthenticated(true);
-        navigate('/', { replace: true }); // ✅ redirect to main dashboard
-      } else {
-        setError('Access denied. Admin privileges required.');
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      setError('Invalid email or password. Please try again.');
-    } finally {
-      setLoading(false);
+  // Theme-based styles
+  const styles = {
+    container: {
+      height: '100vh',
+      width: '100%',
+      display: 'flex',
+      fontFamily: 'var(--font-family, "Poppins", sans-serif)',
+      overflow: 'hidden',
+      backgroundColor: 'var(--bg-primary)',
+      color: 'var(--text-primary)',
+      transition: 'all 0.3s ease',
+    },
+    leftPanel: {
+      width: '400px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'var(--bg-primary)',
+      padding: '2rem',
+      zIndex: 2,
+      boxShadow: `4px 0 15px var(--shadow-color)`,
+    },
+    loginForm: {
+      width: '100%',
+      maxWidth: '350px',
+      backgroundColor: 'var(--bg-secondary)',
+      borderRadius: '12px',
+      boxShadow: `0 4px 12px var(--shadow-color)`,
+      padding: '2rem',
+      border: `1px solid var(--border-color)`,
+    },
+    heading: {
+      fontSize: '1.8rem',
+      fontWeight: '600',
+      color: 'var(--text-primary)',
+      marginBottom: '0.5rem',
+    },
+    subtitle: {
+      color: 'var(--text-secondary)',
+      fontSize: '0.9rem',
+      fontWeight: '400',
+    },
+    input: {
+      width: '100%',
+      height: '45px',
+      padding: '0 0.75rem',
+      borderRadius: '6px',
+      border: '1px solid var(--border-color)',
+      outline: 'none',
+      fontSize: '0.9rem',
+      boxSizing: 'border-box',
+      fontFamily: 'inherit',
+      backgroundColor: 'var(--bg-primary)',
+      color: 'var(--text-primary)',
+      transition: 'all 0.2s ease',
+    },
+    button: {
+      width: '100%',
+      height: '45px',
+      backgroundColor: loading ? '#60A5FA' : '#2563EB',
+      color: '#fff',
+      border: 'none',
+      borderRadius: '6px',
+      fontWeight: '600',
+      cursor: loading ? 'not-allowed' : 'pointer',
+      boxShadow: '0 2px 4px rgba(37, 99, 235, 0.3)',
+      transition: 'all 0.2s ease',
+      fontSize: '0.9rem',
+      fontFamily: 'inherit',
+    },
+    rightPanel: {
+      flex: 1,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #2563EB, #1E40AF)',
+      padding: '2rem',
+      color: '#fff',
+      fontFamily: 'inherit',
+    },
+    themeToggle: {
+      position: 'absolute',
+      top: '1rem',
+      right: '1rem',
+      background: 'var(--bg-secondary)',
+      border: `1px solid var(--border-color)`,
+      color: 'var(--text-primary)',
+      cursor: 'pointer',
+      padding: '0.5rem',
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: 'all 0.2s ease',
     }
   };
 
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   return (
-    <div
-      style={{
-        height: '100vh',
-        width: '100%',
-        display: 'flex',
-        fontFamily: "'Poppins', sans-serif",
-        overflow: 'hidden',
-      }}
-    >
-      {/* Left side - Login form */}
-      <div
-        style={{
-          width: '400px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#fff',
-          padding: '2rem',
-          zIndex: 2,
-          boxShadow: '4px 0 15px rgba(0, 0, 0, 0.05)',
-        }}
+    <div style={styles.container}>
+      {/* Theme Toggle */}
+      <button
+        onClick={toggleTheme}
+        style={styles.themeToggle}
+        aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
       >
-        <div
-          style={{
-            width: '100%',
-            maxWidth: '350px',
-            backgroundColor: '#F9FAFB',
-            borderRadius: '12px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-            padding: '2rem',
-          }}
-        >
+        {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+      </button>
+
+      {/* Left side - Login form */}
+      <div style={styles.leftPanel}>
+        <div style={styles.loginForm}>
           <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-            <h1
-              style={{
-                fontSize: '1.8rem',
-                fontWeight: '600',
-                color: '#111827',
-                marginBottom: '0.5rem',
-              }}
-            >
+            <h1 style={styles.heading}>
               Techaven Admin
             </h1>
-            <p style={{ color: '#4B5563', fontSize: '0.9rem', fontWeight: '400' }}>
+            <p style={styles.subtitle}>
               Sign in to your admin account
             </p>
           </div>
@@ -123,9 +169,9 @@ const Login = () => {
             {error && (
               <div
                 style={{
-                  backgroundColor: '#FEF2F2',
+                  backgroundColor: theme === 'light' ? '#FEF2F2' : '#7F1D1D',
                   border: '1px solid #FECACA',
-                  color: '#B91C1C',
+                  color: '#DC2626',
                   padding: '0.75rem',
                   borderRadius: '6px',
                   textAlign: 'center',
@@ -144,7 +190,7 @@ const Login = () => {
                 style={{
                   fontSize: '0.85rem',
                   fontWeight: '500',
-                  color: '#374151',
+                  color: 'var(--text-secondary)',
                   marginBottom: '0.3rem',
                 }}
               >
@@ -159,17 +205,15 @@ const Login = () => {
                 onChange={(e) =>
                   setCredentials({ ...credentials, email: e.target.value })
                 }
-                placeholder="admin@techhaven.com"
-                style={{
-                  width: '100%',
-                  height: '45px',
-                  padding: '0 0.75rem',
-                  borderRadius: '6px',
-                  border: '1px solid #D1D5DB',
-                  outline: 'none',
-                  fontSize: '0.9rem',
-                  boxSizing: 'border-box',
-                  fontFamily: "'Poppins', sans-serif",
+                placeholder="admin@techaven.com"
+                style={styles.input}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#2563EB';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'var(--border-color)';
+                  e.target.style.boxShadow = 'none';
                 }}
               />
             </div>
@@ -181,7 +225,7 @@ const Login = () => {
                 style={{
                   fontSize: '0.85rem',
                   fontWeight: '500',
-                  color: '#374151',
+                  color: 'var(--text-secondary)',
                   marginBottom: '0.3rem',
                 }}
               >
@@ -197,16 +241,14 @@ const Login = () => {
                   setCredentials({ ...credentials, password: e.target.value })
                 }
                 placeholder="Enter your password"
-                style={{
-                  width: '100%',
-                  height: '45px',
-                  padding: '0 0.75rem',
-                  borderRadius: '6px',
-                  border: '1px solid #D1D5DB',
-                  outline: 'none',
-                  fontSize: '0.9rem',
-                  boxSizing: 'border-box',
-                  fontFamily: "'Poppins', sans-serif",
+                style={styles.input}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#2563EB';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'var(--border-color)';
+                  e.target.style.boxShadow = 'none';
                 }}
               />
             </div>
@@ -215,19 +257,16 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              style={{
-                width: '100%',
-                height: '45px',
-                backgroundColor: loading ? '#60A5FA' : '#2563EB',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                fontWeight: '600',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                boxShadow: '0 2px 4px rgba(37, 99, 235, 0.3)',
-                transition: 'background-color 0.2s ease',
-                fontSize: '0.9rem',
-                fontFamily: "'Poppins', sans-serif",
+              style={styles.button}
+              onMouseOver={(e) => {
+                if (!loading) {
+                  e.target.style.backgroundColor = '#1D4ED8';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!loading) {
+                  e.target.style.backgroundColor = '#2563EB';
+                }
               }}
             >
               {loading ? 'Signing in...' : 'Sign in'}
@@ -237,18 +276,7 @@ const Login = () => {
       </div>
 
       {/* Right side - Blue background */}
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'linear-gradient(135deg, #2563EB, #1E40AF)',
-          padding: '2rem',
-          color: '#fff',
-          fontFamily: "'Poppins', sans-serif",
-        }}
-      >
+      <div style={styles.rightPanel}>
         <div style={{ textAlign: 'center' }}>
           <div
             style={{
