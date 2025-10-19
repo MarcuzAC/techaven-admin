@@ -43,7 +43,7 @@ import Users from "./Users";
 const Dashboard = () => {
   const [activePage, setActivePage] = useState("dashboard");
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -74,6 +74,7 @@ const Dashboard = () => {
   const theme = {
     light: {
       background: "#f5f7fb",
+      navbar: "#ffffff",
       sidebar: "#004aad",
       card: "#ffffff",
       text: {
@@ -86,6 +87,7 @@ const Dashboard = () => {
     },
     dark: {
       background: "#1a1a1a",
+      navbar: "#2d2d2d",
       sidebar: "#0a2540",
       card: "#2d2d2d",
       text: {
@@ -168,6 +170,7 @@ const Dashboard = () => {
   const styles = {
     layout: {
       display: "flex",
+      flexDirection: "column",
       height: "100vh",
       width: "100vw",
       backgroundColor: currentTheme.background,
@@ -175,6 +178,39 @@ const Dashboard = () => {
       fontFamily: "'Poppins', sans-serif",
       color: currentTheme.text.primary,
       transition: "all 0.3s ease",
+    },
+    navbar: {
+      backgroundColor: currentTheme.navbar,
+      boxShadow: currentTheme.shadow,
+      zIndex: 4,
+      padding: "8px 16px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      width: "100%",
+      borderBottom: `1px solid ${currentTheme.border}`,
+      transition: "all 0.3s ease",
+    },
+    navbarContent: {
+      display: "flex",
+      alignItems: "center",
+      gap: "16px",
+    },
+    navbarTitle: {
+      fontSize: "14px",
+      fontWeight: "600",
+      color: currentTheme.text.primary,
+      fontFamily: "'Poppins', sans-serif",
+    },
+    navbarWelcome: {
+      fontSize: "14px",
+      color: currentTheme.text.secondary,
+      fontFamily: "'Poppins', sans-serif",
+    },
+    mainContainer: {
+      display: "flex",
+      flex: 1,
+      overflow: "hidden",
     },
     sidebar: {
       width: "230px",
@@ -211,9 +247,10 @@ const Dashboard = () => {
     },
     main: {
       flex: 1,
-      padding: "30px",
+      padding: "20px",
       overflowY: "auto",
       transition: "all 0.3s ease",
+      maxHeight: "calc(100vh - 60px)", // Adjusted to account for navbar height
     },
     themeToggle: {
       display: "flex",
@@ -234,7 +271,12 @@ const Dashboard = () => {
       case "dashboard":
         return (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ 
+              display: "flex", 
+              justifyContent: "space-between", 
+              alignItems: "center",
+              marginBottom: "20px"
+            }}>
               <h1 style={{ fontSize: "1.8rem", fontWeight: "bold", color: currentTheme.text.primary }}>
                 Dashboard Analytics
               </h1>
@@ -243,13 +285,13 @@ const Dashboard = () => {
               </span>
             </div>
 
-            {/* Stats Cards */}
+            {/* Stats Cards - 3 in a row */}
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-                gap: "20px",
-                margin: "30px 0",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: "15px",
+                marginBottom: "20px",
               }}
             >
               {statCards.map((stat, index) => (
@@ -258,18 +300,19 @@ const Dashboard = () => {
                   style={{
                     backgroundColor: currentTheme.card,
                     borderRadius: "12px",
-                    padding: "20px",
+                    padding: "15px",
                     boxShadow: currentTheme.shadow,
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
                     border: `1px solid ${currentTheme.border}`,
                     transition: "all 0.3s ease",
+                    minHeight: "120px",
                   }}
                 >
                   <div>
                     <div style={{ fontSize: "0.9rem", color: currentTheme.text.secondary }}>{stat.title}</div>
-                    <div style={{ fontSize: "2rem", fontWeight: "bold", color: currentTheme.text.primary }}>
+                    <div style={{ fontSize: "1.8rem", fontWeight: "bold", color: currentTheme.text.primary }}>
                       {stat.value}
                     </div>
                     {stat.change !== 0 && (
@@ -283,36 +326,37 @@ const Dashboard = () => {
               ))}
             </div>
 
-            {/* Charts */}
+            {/* Charts - Adjusted height to fit without scrolling */}
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr",
-                gap: "25px",
-                height: "400px",
+                gap: "15px",
+                height: "320px", // Reduced height to fit better
               }}
             >
               <div
                 style={{
                   backgroundColor: currentTheme.card,
                   borderRadius: "12px",
-                  padding: "20px",
+                  padding: "15px",
                   boxShadow: currentTheme.shadow,
                   border: `1px solid ${currentTheme.border}`,
                   transition: "all 0.3s ease",
                 }}
               >
-                <h3 style={{ color: currentTheme.text.primary, marginBottom: "10px" }}>Monthly Growth</h3>
-                <ResponsiveContainer width="100%" height="90%">
+                <h3 style={{ color: currentTheme.text.primary, marginBottom: "10px", fontSize: "1rem" }}>Monthly Growth</h3>
+                <ResponsiveContainer width="100%" height="85%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.border} />
-                    <XAxis dataKey="name" stroke={currentTheme.text.secondary} />
-                    <YAxis stroke={currentTheme.text.secondary} />
+                    <XAxis dataKey="name" stroke={currentTheme.text.secondary} fontSize={12} />
+                    <YAxis stroke={currentTheme.text.secondary} fontSize={12} />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: currentTheme.card,
                         border: `1px solid ${currentTheme.border}`,
-                        color: currentTheme.text.primary
+                        color: currentTheme.text.primary,
+                        fontSize: "12px"
                       }} 
                     />
                     <Line type="monotone" dataKey="users" stroke="#004aad" strokeWidth={2} />
@@ -326,23 +370,24 @@ const Dashboard = () => {
                 style={{
                   backgroundColor: currentTheme.card,
                   borderRadius: "12px",
-                  padding: "20px",
+                  padding: "15px",
                   boxShadow: currentTheme.shadow,
                   border: `1px solid ${currentTheme.border}`,
                   transition: "all 0.3s ease",
                 }}
               >
-                <h3 style={{ color: currentTheme.text.primary, marginBottom: "10px" }}>Monthly Overview</h3>
-                <ResponsiveContainer width="100%" height="90%">
+                <h3 style={{ color: currentTheme.text.primary, marginBottom: "10px", fontSize: "1rem" }}>Monthly Overview</h3>
+                <ResponsiveContainer width="100%" height="85%">
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.border} />
-                    <XAxis dataKey="name" stroke={currentTheme.text.secondary} />
-                    <YAxis stroke={currentTheme.text.secondary} />
+                    <XAxis dataKey="name" stroke={currentTheme.text.secondary} fontSize={12} />
+                    <YAxis stroke={currentTheme.text.secondary} fontSize={12} />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: currentTheme.card,
                         border: `1px solid ${currentTheme.border}`,
-                        color: currentTheme.text.primary
+                        color: currentTheme.text.primary,
+                        fontSize: "12px"
                       }} 
                     />
                     <Bar dataKey="products" fill="#004aad" />
@@ -442,68 +487,83 @@ const Dashboard = () => {
 
   return (
     <div style={styles.layout}>
-      <aside style={styles.sidebar}>
-        <div>
-          <h2 style={{ fontSize: "1.4rem", textAlign: "center", marginBottom: "25px" }}>Techaven</h2>
-          {navItems.map((item) => (
+      {/* Navbar - Now follows theme */}
+      <header style={styles.navbar}>
+        <div style={styles.navbarContent}>
+          <h1 style={styles.navbarTitle}>
+            Techaven Admin
+          </h1>
+          <span style={styles.navbarWelcome}>
+            Welcome, {user?.name || 'Admin'}
+          </span>
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <div style={styles.mainContainer}>
+        <aside style={styles.sidebar}>
+          <div>
+            <h2 style={{ fontSize: "1.4rem", textAlign: "center", marginBottom: "25px" }}>Techaven</h2>
+            {navItems.map((item) => (
+              <div
+                key={item.id}
+                style={activePage === item.id ? styles.activeLink : styles.link}
+                onClick={() => setActivePage(item.id)}
+                onMouseEnter={(e) => {
+                  if (activePage !== item.id) {
+                    e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activePage !== item.id) {
+                    e.currentTarget.style.background = "transparent";
+                  }
+                }}
+              >
+                {item.icon}
+                {item.name}
+              </div>
+            ))}
+          </div>
+
+          <div>
+            {/* Theme Toggle Button */}
             <div
-              key={item.id}
-              style={activePage === item.id ? styles.activeLink : styles.link}
-              onClick={() => setActivePage(item.id)}
+              style={styles.themeToggle}
+              onClick={toggleTheme}
               onMouseEnter={(e) => {
-                if (activePage !== item.id) {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.2)";
-                }
+                e.currentTarget.style.background = "rgba(255,255,255,0.2)";
               }}
               onMouseLeave={(e) => {
-                if (activePage !== item.id) {
-                  e.currentTarget.style.background = "transparent";
-                }
+                e.currentTarget.style.background = "transparent";
               }}
             >
-              {item.icon}
-              {item.name}
+              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+              {isDarkMode ? "Light Mode" : "Dark Mode"}
             </div>
-          ))}
-        </div>
 
-        <div>
-          {/* Theme Toggle Button */}
-          <div
-            style={styles.themeToggle}
-            onClick={toggleTheme}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.2)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-            {isDarkMode ? "Light Mode" : "Dark Mode"}
+            {/* Logout Button */}
+            <div
+              style={{
+                ...styles.link,
+                backgroundColor: "rgba(255,255,255,0.2)",
+              }}
+              onClick={handleLogout}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "rgba(255,255,255,0.2)";
+              }}
+            >
+              <LogOut size={18} />
+              Logout
+            </div>
           </div>
+        </aside>
 
-          {/* Logout Button */}
-          <div
-            style={{
-              ...styles.link,
-              backgroundColor: "rgba(255,255,255,0.2)",
-            }}
-            onClick={handleLogout}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.3)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.2)";
-            }}
-          >
-            <LogOut size={18} />
-            Logout
-          </div>
-        </div>
-      </aside>
-
-      <main style={styles.main}>{renderActivePage()}</main>
+        <main style={styles.main}>{renderActivePage()}</main>
+      </div>
     </div>
   );
 };
