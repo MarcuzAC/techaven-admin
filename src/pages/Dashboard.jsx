@@ -160,12 +160,12 @@ const Dashboard = () => {
       change: stats?.shopGrowth || 0,
     },
     {
-      title: "Revenue",
-      value: stats?.totalRevenue ? `$${stats.totalRevenue}` : "$0",
-      icon: <DollarSign size={24} />,
-      color: "#48cae4",
-      change: stats?.revenueGrowth || 0,
-    },
+  title: "Revenue",
+  value: stats?.totalRevenue ? `MWK ${stats.totalRevenue.toLocaleString()}` : "MWK 0",
+  //icon: <DollarSign size={24} />,
+  color: "#48cae4",
+  change: stats?.revenueGrowth || 0,
+},
     {
       title: "Pending Shops",
       value: stats?.pendingShops || 0,
