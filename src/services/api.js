@@ -68,7 +68,7 @@ export const usersAPI = {
   getProfile: () => api.get('/users/profile'),
   getUser: (id) => api.get(`/users/${id}`),
   
-  // ✅ ADDED: Get all users with search and filters
+  // ✅ Get all users with search and filters
   getUsers: async (params = {}) => {
     const { search, role, status, skip = 0, limit = 100 } = params;
     
@@ -77,19 +77,19 @@ export const usersAPI = {
     queryParams.append('limit', limit);
     
     if (search) queryParams.append('search', search);
-    if (role) queryParams.append('type', role); // Map 'role' to 'type' for backend
+    if (role) queryParams.append('type', role);
     
     const response = await api.get(`/users?${queryParams}`);
     return response.data;
   },
 
-  // ✅ ADDED: Delete user
+  // ✅ Delete user
   deleteUser: async (userId) => {
     const response = await api.delete(`/users/${userId}`);
     return response.data;
   },
 
-  // ✅ ADDED: Update user status
+  // ✅ Update user status
   updateUserStatus: async (userId, status) => {
     const response = await api.patch(`/users/${userId}/status`, { status });
     return response.data;
@@ -98,9 +98,10 @@ export const usersAPI = {
 
 // ------------------------- SHOPS -------------------------
 export const shopsAPI = {
+  // ✅ Create shop (regular user)
   createShop: (data) => api.post('/shops/', data),
   
-  // ✅ ADDED: Admin create shop
+  // ✅ Admin create shop
   createShopAdmin: async (data, userId = null, verified = true) => {
     const params = new URLSearchParams();
     if (userId) params.append('user_id', userId);
@@ -110,11 +111,39 @@ export const shopsAPI = {
     return response.data;
   },
   
-  getShops: () => api.get('/shops/'),
+  // ✅ Get all shops with pagination and filters
+  getShops: async (params = {}) => {
+    const { 
+      search, 
+      verified, 
+      status, 
+      skip = 0, 
+      limit = 100,
+      sort_by = 'created_at',
+      order = 'desc'
+    } = params;
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('skip', skip);
+    queryParams.append('limit', limit);
+    queryParams.append('sort_by', sort_by);
+    queryParams.append('order', order);
+    
+    if (search) queryParams.append('search', search);
+    if (verified !== undefined) queryParams.append('verified', verified.toString());
+    if (status) queryParams.append('status', status);
+    
+    const response = await api.get(`/shops?${queryParams}`);
+    return response.data;
+  },
+  
+  // ✅ Get single shop
   getShop: (id) => api.get(`/shops/${id}`),
+  
+  // ✅ Update shop (regular user)
   updateShop: (id, data) => api.put(`/shops/${id}`, data),
   
-  // ✅ ADDED: Admin update shop
+  // ✅ Admin update shop
   updateShopAdmin: async (id, data, verified = null) => {
     const params = new URLSearchParams();
     if (verified !== null) params.append('verified', verified.toString());
@@ -123,15 +152,88 @@ export const shopsAPI = {
     return response.data;
   },
   
-  getPending: () => api.get('/admin/shops/pending'),
+  // ✅ Delete shop
+  deleteShop: (id) => api.delete(`/shops/${id}`),
+  
+  // ✅ Admin delete shop
+  deleteShopAdmin: (id) => api.delete(`/shops/admin/${id}`),
+  
+  // ✅ Get pending shops for admin approval
+  getPendingShops: async (params = {}) => {
+    const { skip = 0, limit = 100 } = params;
+    const queryParams = new URLSearchParams();
+    queryParams.append('skip', skip);
+    queryParams.append('limit', limit);
+    
+    const response = await api.get(`/admin/shops/pending?${queryParams}`);
+    return response.data;
+  },
+  
+  // ✅ Verify/approve shop
   verifyShop: (id) => api.post(`/admin/shops/${id}/verify`),
+  
+  // ✅ Reject shop
+  rejectShop: (id, reason = '') => api.post(`/admin/shops/${id}/reject`, { reason }),
+  
+  // ✅ Get shop statistics
+  getShopStats: (id) => api.get(`/shops/${id}/stats`),
+  
+  // ✅ Get shop products
+  getShopProducts: async (shopId, params = {}) => {
+    const { skip = 0, limit = 100, category, status } = params;
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('skip', skip);
+    queryParams.append('limit', limit);
+    
+    if (category) queryParams.append('category', category);
+    if (status) queryParams.append('status', status);
+    
+    const response = await api.get(`/shops/${shopId}/products?${queryParams}`);
+    return response.data;
+  }
 };
 
 // ------------------------- PRODUCTS -------------------------
 export const productsAPI = {
   createProduct: (data) => api.post('/products/', data),
-  getProducts: () => api.get('/products/'),
+  
+  // ✅ Get products with filters and pagination
+  getProducts: async (params = {}) => {
+    const { 
+      search, 
+      category, 
+      min_price, 
+      max_price, 
+      status,
+      skip = 0, 
+      limit = 100,
+      sort_by = 'created_at',
+      order = 'desc'
+    } = params;
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('skip', skip);
+    queryParams.append('limit', limit);
+    queryParams.append('sort_by', sort_by);
+    queryParams.append('order', order);
+    
+    if (search) queryParams.append('search', search);
+    if (category) queryParams.append('category', category);
+    if (min_price) queryParams.append('min_price', min_price);
+    if (max_price) queryParams.append('max_price', max_price);
+    if (status) queryParams.append('status', status);
+    
+    const response = await api.get(`/products?${queryParams}`);
+    return response.data;
+  },
+  
   getProduct: (id) => api.get(`/products/${id}`),
+  
+  updateProduct: (id, data) => api.put(`/products/${id}`, data),
+  
+  deleteProduct: (id) => api.delete(`/products/${id}`),
+  
   uploadImages: (id, files) => {
     const formData = new FormData();
     files.forEach((file) => formData.append('images', file));
@@ -143,15 +245,62 @@ export const productsAPI = {
 
 // ------------------------- ORDERS -------------------------
 export const ordersAPI = {
-  getOrders: () => api.get('/orders/'),
+  // ✅ Get orders with filters and pagination
+  getOrders: async (params = {}) => {
+    const { 
+      status, 
+      shop_id,
+      user_id,
+      skip = 0, 
+      limit = 100,
+      sort_by = 'created_at',
+      order = 'desc'
+    } = params;
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('skip', skip);
+    queryParams.append('limit', limit);
+    queryParams.append('sort_by', sort_by);
+    queryParams.append('order', order);
+    
+    if (status) queryParams.append('status', status);
+    if (shop_id) queryParams.append('shop_id', shop_id);
+    if (user_id) queryParams.append('user_id', user_id);
+    
+    const response = await api.get(`/orders?${queryParams}`);
+    return response.data;
+  },
+  
   createOrder: (data) => api.post('/orders/', data),
   getOrder: (id) => api.get(`/orders/${id}`),
+  updateOrder: (id, data) => api.put(`/orders/${id}`, data),
+  
+  // ✅ Update order status
+  updateOrderStatus: (id, status) => api.patch(`/orders/${id}/status`, { status }),
 };
 
 // ------------------------- PROMOTIONS -------------------------
 export const promotionsAPI = {
-  getPromotions: () => api.get('/promotions/'),
+  getPromotions: async (params = {}) => {
+    const { skip = 0, limit = 100, active } = params;
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('skip', skip);
+    queryParams.append('limit', limit);
+    
+    if (active !== undefined) queryParams.append('active', active.toString());
+    
+    const response = await api.get(`/promotions?${queryParams}`);
+    return response.data;
+  },
+  
   createPromotion: (data) => api.post('/promotions/', data),
+  getPromotion: (id) => api.get(`/promotions/${id}`),
+  updatePromotion: (id, data) => api.put(`/promotions/${id}`, data),
+  deletePromotion: (id) => api.delete(`/promotions/${id}`),
+  
+  // ✅ Activate/deactivate promotion
+  togglePromotion: (id, active) => api.patch(`/promotions/${id}/active`, { active }),
 };
 
 // ------------------------- ADMIN METRICS -------------------------
@@ -164,13 +313,11 @@ export const adminAPI = {
       // Handle different response structures
       if (typeof response.data === 'string') {
         console.warn('⚠️ Metrics endpoint returned string instead of JSON');
-        // If it's a string, try to parse it as JSON
         try {
           const parsedData = JSON.parse(response.data);
           return parsedData;
         } catch (parseError) {
           console.error('❌ Failed to parse metrics response as JSON:', parseError);
-          // Return empty structure if parsing fails
           return {
             data: {
               totalUsers: 0,
@@ -191,13 +338,10 @@ export const adminAPI = {
         }
       }
       
-      // If response.data is already an object but doesn't have the expected structure
       if (response.data && typeof response.data === 'object') {
-        // If the data is directly in response.data (not nested under .data)
         if (response.data.totalUsers !== undefined) {
           return { data: response.data };
         }
-        // If it's already in the expected { data: { ... } } structure
         if (response.data.data) {
           return response.data;
         }
@@ -211,6 +355,20 @@ export const adminAPI = {
       throw error;
     }
   },
+  
+  // ✅ Get admin dashboard stats
+  getDashboardStats: () => api.get('/admin/dashboard'),
+  
+  // ✅ Get recent activities
+  getRecentActivities: async (params = {}) => {
+    const { skip = 0, limit = 50 } = params;
+    const queryParams = new URLSearchParams();
+    queryParams.append('skip', skip);
+    queryParams.append('limit', limit);
+    
+    const response = await api.get(`/admin/activities?${queryParams}`);
+    return response.data;
+  }
 };
 
 export default api;

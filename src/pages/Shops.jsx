@@ -10,86 +10,126 @@ const Shops = ({ isDarkMode }) => {
     verification: ''
   });
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isLoadingCreate, setIsLoadingCreate] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     address: '',
-    phone: '',
-    user_id: '', // Optional - if empty, shop will be created for admin
-    verified: true
+    phone: ''
   });
   const queryClient = useQueryClient();
 
-  const { data: shopsResponse, isLoading, error, refetch } = useQuery(
-    ['shops'], 
-    () => shopsAPI.getShops()
-  );
-
-  const deleteMutation = useMutation(shopsAPI.deleteShop, {
-    onSuccess: () => {
-      queryClient.invalidateQueries(['shops']);
-    },
-    onError: (error) => {
-      alert(`Error deleting shop: ${error.response?.data?.detail || 'Unknown error'}`);
-    }
-  });
-
-  const verifyMutation = useMutation(shopsAPI.verifyShop, {
-    onSuccess: () => {
-      queryClient.invalidateQueries(['shops']);
-    },
-    onError: (error) => {
-      alert(`Error verifying shop: ${error.response?.data?.detail || 'Unknown error'}`);
-    }
-  });
-
-  const updateShopMutation = useMutation(
-    ({ id, data }) => shopsAPI.updateShopAdmin(id, data),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(['shops']);
-      },
-      onError: (error) => {
-        alert(`Error updating shop: ${error.response?.data?.detail || 'Unknown error'}`);
-      }
-    }
-  );
-
-  const handleCreateShop = async (e) => {
-    e.preventDefault();
-    setIsLoadingCreate(true);
-
-    try {
-      // Remove empty user_id if provided
-      const submitData = { ...formData };
-      if (!submitData.user_id.trim()) {
-        delete submitData.user_id;
-      }
-
-      await shopsAPI.createShopAdmin(submitData);
+  // ✅ FIXED: Get shops with proper query parameters
+  const { 
+    data: shopsResponse, 
+    isLoading, 
+    error, 
+    refetch 
+  } = useQuery({
+    queryKey: ['shops', filters, searchTerm],
+    queryFn: () => {
+      const params = {};
       
-      // Reset form and close modal
+      // Apply backend filters
+      if (filters.verification) {
+        params.verified = filters.verification === 'verified';
+      }
+      
+      // Apply search if provided
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      
+      return shopsAPI.getShops(params);
+    },
+    keepPreviousData: true
+  });
+
+  // ✅ FIXED: Extract shops from response
+  const shops = React.useMemo(() => {
+    if (!shopsResponse) return [];
+    
+    // Handle different response structures
+    if (Array.isArray(shopsResponse)) {
+      return shopsResponse;
+    } else if (shopsResponse.data && Array.isArray(shopsResponse.data)) {
+      return shopsResponse.data;
+    } else if (shopsResponse.shops && Array.isArray(shopsResponse.shops)) {
+      return shopsResponse.shops;
+    } else if (typeof shopsResponse === 'object') {
+      // If it's a single shop object, wrap in array
+      return [shopsResponse];
+    }
+    
+    console.warn('Unexpected shops response structure:', shopsResponse);
+    return [];
+  }, [shopsResponse]);
+
+  // ✅ FIXED: Delete shop mutation
+  const deleteMutation = useMutation({
+    mutationFn: (shopId) => shopsAPI.deleteShopAdmin(shopId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['shops']);
+    },
+    onError: (error) => {
+      alert(`Error deleting shop: ${error.response?.data?.detail || error.message || 'Unknown error'}`);
+    }
+  });
+
+  // ✅ FIXED: Verify shop mutation
+  const verifyMutation = useMutation({
+    mutationFn: (shopId) => shopsAPI.verifyShop(shopId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['shops']);
+    },
+    onError: (error) => {
+      alert(`Error verifying shop: ${error.response?.data?.detail || error.message || 'Unknown error'}`);
+    }
+  });
+
+  // ✅ FIXED: Reject shop mutation
+  const rejectMutation = useMutation({
+    mutationFn: (shopId) => shopsAPI.rejectShop(shopId),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['shops']);
+    },
+    onError: (error) => {
+      alert(`Error rejecting shop: ${error.response?.data?.detail || error.message || 'Unknown error'}`);
+    }
+  });
+
+  // ✅ FIXED: Update shop mutation
+  const updateShopMutation = useMutation({
+    mutationFn: ({ id, data }) => shopsAPI.updateShopAdmin(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['shops']);
+    },
+    onError: (error) => {
+      alert(`Error updating shop: ${error.response?.data?.detail || error.message || 'Unknown error'}`);
+    }
+  });
+
+  // ✅ FIXED: Create shop mutation (using admin endpoint)
+  const createShopMutation = useMutation({
+    mutationFn: (data) => shopsAPI.createShopAdmin(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['shops']);
+      setIsCreateModalOpen(false);
       setFormData({
         name: '',
         description: '',
         address: '',
-        phone: '',
-        user_id: '',
-        verified: true
+        phone: ''
       });
-      setIsCreateModalOpen(false);
-      
-      // Refresh shops list
-      refetch();
-      
       alert('Shop created successfully!');
-    } catch (error) {
-      console.error('Error creating shop:', error);
-      alert(`Error creating shop: ${error.response?.data?.detail || 'Unknown error'}`);
-    } finally {
-      setIsLoadingCreate(false);
+    },
+    onError: (error) => {
+      alert(`Error creating shop: ${error.response?.data?.detail || error.message || 'Unknown error'}`);
     }
+  });
+
+  const handleCreateShop = async (e) => {
+    e.preventDefault();
+    createShopMutation.mutate(formData);
   };
 
   const handleInputChange = (field, value) => {
@@ -100,18 +140,15 @@ const Shops = ({ isDarkMode }) => {
   };
 
   const handleToggleVerification = (shop) => {
-    const newVerifiedStatus = !shop.verified;
-    if (window.confirm(`Are you sure you want to ${newVerifiedStatus ? 'verify' : 'unverify'} this shop?`)) {
-      updateShopMutation.mutate({
-        id: shop.id,
-        data: {
-          name: shop.name,
-          description: shop.description,
-          address: shop.address,
-          phone: shop.phone
-        },
-        verified: newVerifiedStatus
-      });
+    const action = shop.verified ? 'reject' : 'verify';
+    const message = `Are you sure you want to ${action} the shop "${shop.name}"?`;
+    
+    if (window.confirm(message)) {
+      if (action === 'verify') {
+        verifyMutation.mutate(shop.id);
+      } else {
+        rejectMutation.mutate(shop.id);
+      }
     }
   };
 
@@ -121,37 +158,25 @@ const Shops = ({ isDarkMode }) => {
     }
   };
 
-  // Filter shops based on search term and filters
-  const filteredShops = React.useMemo(() => {
-    if (!shopsResponse) return [];
-    
-    let shops = Array.isArray(shopsResponse) ? shopsResponse : shopsResponse.data || [];
-    
-    // Apply search filter
-    if (searchTerm) {
-      shops = shops.filter(shop => 
-        shop.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        shop.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        shop.phone?.includes(searchTerm)
-      );
-    }
-    
-    // Apply status filter
-    if (filters.status) {
-      shops = shops.filter(shop => shop.status?.toLowerCase() === filters.status.toLowerCase());
-    }
-    
-    // Apply verification filter
-    if (filters.verification) {
-      if (filters.verification === 'verified') {
-        shops = shops.filter(shop => shop.verified === true);
-      } else if (filters.verification === 'pending') {
-        shops = shops.filter(shop => shop.verified === false);
-      }
-    }
-    
-    return shops;
-  }, [shopsResponse, searchTerm, filters]);
+  // ✅ FIXED: Calculate stats from actual shops data
+  const shopStats = [
+    { label: 'Total Shops', value: shops.length },
+    { label: 'Verified', value: shops.filter(shop => shop.verified).length },
+    { label: 'Pending', value: shops.filter(shop => !shop.verified).length },
+  ];
+
+  // ✅ FIXED: Handle search with debouncing or use backend search
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    // The search will be handled by the useQuery dependency
+  };
+
+  const handleFilterChange = (filterType, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterType]: value
+    }));
+  };
 
   const styles = {
     container: {
@@ -336,14 +361,11 @@ const Shops = ({ isDarkMode }) => {
     },
     statusBadge: {
       active: { backgroundColor: '#dcfce7', color: '#166534' },
-      inactive: { backgroundColor: '#fecaca', color: '#dc2626' },
       pending: { backgroundColor: '#fef3c7', color: '#d97706' },
-      suspended: { backgroundColor: '#f3f4f6', color: '#374151' },
     },
     verificationBadge: {
       verified: { backgroundColor: '#dbeafe', color: '#1d4ed8' },
       pending: { backgroundColor: '#fef3c7', color: '#d97706' },
-      rejected: { backgroundColor: '#fecaca', color: '#dc2626' },
     },
     actionsContainer: {
       display: 'flex',
@@ -519,19 +541,6 @@ const Shops = ({ isDarkMode }) => {
       resize: 'vertical',
       fontFamily: "'Poppins', sans-serif",
     },
-    checkboxGroup: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-    },
-    checkbox: {
-      width: '16px',
-      height: '16px',
-    },
-    checkboxLabel: {
-      fontSize: '0.875rem',
-      color: isDarkMode ? '#a0a0a0' : '#6b7280',
-    },
     submitButton: {
       backgroundColor: '#004aad',
       color: 'white',
@@ -547,11 +556,6 @@ const Shops = ({ isDarkMode }) => {
     loadingButton: {
       opacity: 0.7,
       cursor: 'not-allowed',
-    },
-    helperText: {
-      fontSize: '0.75rem',
-      color: isDarkMode ? '#a0a0a0' : '#6b7280',
-      fontStyle: 'italic',
     },
   };
 
@@ -586,31 +590,11 @@ const Shops = ({ isDarkMode }) => {
         <div style={styles.contactInfo}>
           <div style={styles.contactItem}>
             <User size={10} />
-            {shop.owner_name || shop.user_id || 'Unknown Owner'}
+            {shop.owner_name || shop.owner?.name || shop.user_id || 'Unknown Owner'}
           </div>
           <div style={styles.contactItem}>
             <Phone size={10} />
-            {shop.contact_phone || shop.phone || 'No phone'}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'metrics',
-      header: 'Metrics',
-      render: (shop) => (
-        <div style={styles.metricsContainer}>
-          <div style={styles.metric}>
-            <span style={styles.metricValue}>{shop.products_count || 0}</span>
-            <span style={styles.metricLabel}>Products</span>
-          </div>
-          <div style={styles.metric}>
-            <span style={styles.metricValue}>{shop.orders_count || 0}</span>
-            <span style={styles.metricLabel}>Orders</span>
-          </div>
-          <div style={styles.metric}>
-            <span style={styles.metricValue}>{shop.rating || '0.0'}</span>
-            <span style={styles.metricLabel}>Rating</span>
+            {shop.contact_phone || shop.phone || shop.owner?.phone || 'No phone'}
           </div>
         </div>
       ),
@@ -621,9 +605,9 @@ const Shops = ({ isDarkMode }) => {
       render: (shop) => (
         <span style={{ 
           ...styles.badge, 
-          ...styles.statusBadge[shop.status?.toLowerCase()] || styles.statusBadge.pending 
+          ...(shop.verified ? styles.statusBadge.active : styles.statusBadge.pending)
         }}>
-          {shop.status || 'active'}
+          {shop.verified ? 'active' : 'pending'}
         </span>
       ),
     },
@@ -677,8 +661,11 @@ const Shops = ({ isDarkMode }) => {
           
           <button
             onClick={() => handleToggleVerification(shop)}
-            style={{ ...styles.actionButton, ...(shop.verified ? styles.rejectButton : styles.verifyButton) }}
-            title={shop.verified ? 'Unverify shop' : 'Verify shop'}
+            style={{ 
+              ...styles.actionButton, 
+              ...(shop.verified ? styles.rejectButton : styles.verifyButton)
+            }}
+            title={shop.verified ? 'Reject shop' : 'Verify shop'}
             onMouseEnter={(e) => e.target.style.backgroundColor = shop.verified ? '#fecaca' : '#dcfce7'}
             onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
           >
@@ -691,22 +678,13 @@ const Shops = ({ isDarkMode }) => {
             title="Delete shop"
             onMouseEnter={(e) => e.target.style.backgroundColor = '#fecaca'}
             onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+            disabled={deleteMutation.isLoading}
           >
             <Trash2 size={16} />
           </button>
         </div>
       ),
     },
-  ];
-
-  const shops = filteredShops;
-  
-  // Calculate stats from filtered shops
-  const shopStats = [
-    { label: 'Total Shops', value: shops.length },
-    { label: 'Verified', value: shops.filter(shop => shop.verified).length },
-    { label: 'Pending', value: shops.filter(shop => !shop.verified).length },
-    { label: 'Active', value: shops.filter(shop => shop.status === 'active').length },
   ];
 
   if (isLoading) {
@@ -726,6 +704,13 @@ const Shops = ({ isDarkMode }) => {
         <h1 style={styles.title}>Shops Management</h1>
         <div style={styles.errorContainer}>
           Error loading shops: {error.response?.data?.detail || error.message}
+          <br />
+          <button 
+            onClick={() => refetch()}
+            style={{ marginTop: '10px', padding: '8px 16px', backgroundColor: '#004aad', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -763,9 +748,9 @@ const Shops = ({ isDarkMode }) => {
             <Search style={styles.searchIcon} />
             <input
               type="text"
-              placeholder="Search shops by name, owner, or location..."
+              placeholder="Search shops by name, address, or phone..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               style={styles.searchInput}
               onFocus={(e) => e.target.style.borderColor = '#004aad'}
               onBlur={(e) => e.target.style.borderColor = isDarkMode ? '#404040' : '#d1d5db'}
@@ -774,22 +759,8 @@ const Shops = ({ isDarkMode }) => {
           
           <div style={styles.filtersContainer}>
             <select
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              style={styles.select}
-              onFocus={(e) => e.target.style.borderColor = '#004aad'}
-              onBlur={(e) => e.target.style.borderColor = isDarkMode ? '#404040' : '#d1d5db'}
-            >
-              <option value="">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="pending">Pending</option>
-              <option value="suspended">Suspended</option>
-            </select>
-            
-            <select
               value={filters.verification}
-              onChange={(e) => setFilters({ ...filters, verification: e.target.value })}
+              onChange={(e) => handleFilterChange('verification', e.target.value)}
               style={styles.select}
               onFocus={(e) => e.target.style.borderColor = '#004aad'}
               onBlur={(e) => e.target.style.borderColor = isDarkMode ? '#404040' : '#d1d5db'}
@@ -822,7 +793,7 @@ const Shops = ({ isDarkMode }) => {
               {shops.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length} style={styles.emptyCell}>
-                    {searchTerm || filters.status || filters.verification 
+                    {searchTerm || filters.verification 
                       ? 'No shops match your search criteria' 
                       : 'No shops found'
                     }
@@ -852,6 +823,7 @@ const Shops = ({ isDarkMode }) => {
         <div style={{ padding: '16px', borderTop: `1px solid ${isDarkMode ? '#404040' : '#e5e7eb'}`, textAlign: 'center' }}>
           <div style={{ color: isDarkMode ? '#a0a0a0' : '#6b7280', fontSize: '0.875rem' }}>
             Showing {shops.length} shops
+            {shopsResponse?.total && ` of ${shopsResponse.total}`}
           </div>
         </div>
       </div>
@@ -928,46 +900,17 @@ const Shops = ({ isDarkMode }) => {
                 />
               </div>
 
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>
-                  <User size={14} />
-                  User ID (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={formData.user_id}
-                  onChange={(e) => handleInputChange('user_id', e.target.value)}
-                  style={styles.input}
-                  placeholder="Leave empty to create for yourself"
-                />
-                <span style={styles.helperText}>
-                  Leave empty to create the shop for your admin account
-                </span>
-              </div>
-
-              <div style={styles.checkboxGroup}>
-                <input
-                  type="checkbox"
-                  checked={formData.verified}
-                  onChange={(e) => handleInputChange('verified', e.target.checked)}
-                  style={styles.checkbox}
-                />
-                <label style={styles.checkboxLabel}>
-                  Verified Shop
-                </label>
-              </div>
-
               <button
                 type="submit"
                 style={{
                   ...styles.submitButton,
-                  ...(isLoadingCreate && styles.loadingButton)
+                  ...(createShopMutation.isLoading && styles.loadingButton)
                 }}
-                disabled={isLoadingCreate}
-                onMouseEnter={(e) => !isLoadingCreate && (e.target.style.backgroundColor = '#003366')}
-                onMouseLeave={(e) => !isLoadingCreate && (e.target.style.backgroundColor = '#004aad')}
+                disabled={createShopMutation.isLoading}
+                onMouseEnter={(e) => !createShopMutation.isLoading && (e.target.style.backgroundColor = '#003366')}
+                onMouseLeave={(e) => !createShopMutation.isLoading && (e.target.style.backgroundColor = '#004aad')}
               >
-                {isLoadingCreate ? 'Creating...' : 'Create Shop'}
+                {createShopMutation.isLoading ? 'Creating...' : 'Create Shop'}
               </button>
             </form>
           </div>
