@@ -29,9 +29,6 @@ import {
   BarChart,
   Bar,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
 } from "recharts";
 import { adminAPI } from "../services/api";
 import Orders from "./Orders";
@@ -67,8 +64,39 @@ const Dashboard = () => {
     refetchInterval: 30000,
   });
 
-  const stats = apiResponse?.data;
-  const chartData = stats?.monthlyData || stats?.chartData || [];
+  // Handle the current backend response structure
+  const stats = React.useMemo(() => {
+    if (!apiResponse) return {};
+    
+    // If the backend returns the new structure with "data" property
+    if (apiResponse.data) {
+      return apiResponse.data;
+    }
+    
+    // If the backend returns the old structure (direct fields)
+    // This handles the current response until you update the backend
+    if (apiResponse.total_users !== undefined) {
+      return {
+        totalUsers: apiResponse.total_users || 0,
+        totalShops: apiResponse.total_shops || 0,
+        totalProducts: apiResponse.total_products || 0,
+        totalOrders: apiResponse.total_orders || 0,
+        totalRevenue: 0, // Not available in current response
+        pendingShops: apiResponse.pending_verifications || 0,
+        userGrowth: 0,
+        productGrowth: 0,
+        orderGrowth: 0,
+        shopGrowth: 0,
+        revenueGrowth: 0,
+        monthlyData: [],
+        categoryDistribution: []
+      };
+    }
+    
+    return {};
+  }, [apiResponse]);
+
+  const chartData = stats?.monthlyData || [];
 
   // Theme-based colors
   const theme = {
@@ -146,16 +174,6 @@ const Dashboard = () => {
       change: 0,
     },
   ];
-
-  const categoryData = stats?.categoryDistribution || [
-    { name: "Electronics", value: 35 },
-    { name: "Clothing", value: 25 },
-    { name: "Home", value: 20 },
-    { name: "Sports", value: 15 },
-    { name: "Other", value: 5 },
-  ];
-
-  const COLORS = ["#004aad", "#00b4d8", "#0077b6", "#0096c7", "#48cae4"];
 
   const navItems = [
     { id: "dashboard", name: "Dashboard", icon: <LayoutDashboard size={18} /> },
@@ -250,7 +268,7 @@ const Dashboard = () => {
       padding: "20px",
       overflowY: "auto",
       transition: "all 0.3s ease",
-      maxHeight: "calc(100vh - 60px)", // Adjusted to account for navbar height
+      maxHeight: "calc(100vh - 60px)",
     },
     themeToggle: {
       display: "flex",
@@ -263,6 +281,14 @@ const Dashboard = () => {
       fontSize: "0.95rem",
       transition: "all 0.3s ease",
       marginBottom: "10px",
+    },
+    emptyState: {
+      backgroundColor: currentTheme.card,
+      padding: "40px",
+      borderRadius: "12px",
+      textAlign: "center",
+      border: `1px solid ${currentTheme.border}`,
+      marginBottom: "20px",
     },
   };
 
@@ -326,77 +352,88 @@ const Dashboard = () => {
               ))}
             </div>
 
-            {/* Charts - Adjusted height to fit without scrolling */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "15px",
-                height: "320px", // Reduced height to fit better
-              }}
-            >
+            {/* Charts - Only show if we have data */}
+            {chartData.length > 0 ? (
               <div
                 style={{
-                  backgroundColor: currentTheme.card,
-                  borderRadius: "12px",
-                  padding: "15px",
-                  boxShadow: currentTheme.shadow,
-                  border: `1px solid ${currentTheme.border}`,
-                  transition: "all 0.3s ease",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "15px",
+                  height: "320px",
                 }}
               >
-                <h3 style={{ color: currentTheme.text.primary, marginBottom: "10px", fontSize: "1rem" }}>Monthly Growth</h3>
-                <ResponsiveContainer width="100%" height="85%">
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.border} />
-                    <XAxis dataKey="name" stroke={currentTheme.text.secondary} fontSize={12} />
-                    <YAxis stroke={currentTheme.text.secondary} fontSize={12} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: currentTheme.card,
-                        border: `1px solid ${currentTheme.border}`,
-                        color: currentTheme.text.primary,
-                        fontSize: "12px"
-                      }} 
-                    />
-                    <Line type="monotone" dataKey="users" stroke="#004aad" strokeWidth={2} />
-                    <Line type="monotone" dataKey="orders" stroke="#00b4d8" strokeWidth={2} />
-                    <Line type="monotone" dataKey="products" stroke="#0077b6" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+                <div
+                  style={{
+                    backgroundColor: currentTheme.card,
+                    borderRadius: "12px",
+                    padding: "15px",
+                    boxShadow: currentTheme.shadow,
+                    border: `1px solid ${currentTheme.border}`,
+                    transition: "all 0.3s ease",
+                  }}
+                >
+                  <h3 style={{ color: currentTheme.text.primary, marginBottom: "10px", fontSize: "1rem" }}>Monthly Growth</h3>
+                  <ResponsiveContainer width="100%" height="85%">
+                    <LineChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.border} />
+                      <XAxis dataKey="name" stroke={currentTheme.text.secondary} fontSize={12} />
+                      <YAxis stroke={currentTheme.text.secondary} fontSize={12} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: currentTheme.card,
+                          border: `1px solid ${currentTheme.border}`,
+                          color: currentTheme.text.primary,
+                          fontSize: "12px"
+                        }} 
+                      />
+                      <Line type="monotone" dataKey="users" stroke="#004aad" strokeWidth={2} />
+                      <Line type="monotone" dataKey="orders" stroke="#00b4d8" strokeWidth={2} />
+                      <Line type="monotone" dataKey="products" stroke="#0077b6" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
 
-              <div
-                style={{
-                  backgroundColor: currentTheme.card,
-                  borderRadius: "12px",
-                  padding: "15px",
-                  boxShadow: currentTheme.shadow,
-                  border: `1px solid ${currentTheme.border}`,
-                  transition: "all 0.3s ease",
-                }}
-              >
-                <h3 style={{ color: currentTheme.text.primary, marginBottom: "10px", fontSize: "1rem" }}>Monthly Overview</h3>
-                <ResponsiveContainer width="100%" height="85%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.border} />
-                    <XAxis dataKey="name" stroke={currentTheme.text.secondary} fontSize={12} />
-                    <YAxis stroke={currentTheme.text.secondary} fontSize={12} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: currentTheme.card,
-                        border: `1px solid ${currentTheme.border}`,
-                        color: currentTheme.text.primary,
-                        fontSize: "12px"
-                      }} 
-                    />
-                    <Bar dataKey="products" fill="#004aad" />
-                    <Bar dataKey="shops" fill="#00b4d8" />
-                    <Bar dataKey="orders" fill="#0077b6" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div
+                  style={{
+                    backgroundColor: currentTheme.card,
+                    borderRadius: "12px",
+                    padding: "15px",
+                    boxShadow: currentTheme.shadow,
+                    border: `1px solid ${currentTheme.border}`,
+                    transition: "all 0.3s ease",
+                  }}
+                >
+                  <h3 style={{ color: currentTheme.text.primary, marginBottom: "10px", fontSize: "1rem" }}>Monthly Overview</h3>
+                  <ResponsiveContainer width="100%" height="85%">
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={currentTheme.border} />
+                      <XAxis dataKey="name" stroke={currentTheme.text.secondary} fontSize={12} />
+                      <YAxis stroke={currentTheme.text.secondary} fontSize={12} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: currentTheme.card,
+                          border: `1px solid ${currentTheme.border}`,
+                          color: currentTheme.text.primary,
+                          fontSize: "12px"
+                        }} 
+                      />
+                      <Bar dataKey="products" fill="#004aad" />
+                      <Bar dataKey="shops" fill="#00b4d8" />
+                      <Bar dataKey="orders" fill="#0077b6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div style={styles.emptyState}>
+                <h3 style={{ color: currentTheme.text.primary, marginBottom: "10px" }}>
+                  Analytics Charts
+                </h3>
+                <p style={{ color: currentTheme.text.secondary }}>
+                  Monthly analytics charts will appear here once implemented in the backend.
+                </p>
+              </div>
+            )}
           </>
         );
       case "users":
@@ -468,6 +505,9 @@ const Dashboard = () => {
           <AlertCircle />
           <span>Error loading dashboard data</span>
         </div>
+        <div style={{ color: currentTheme.text.secondary, marginBottom: "20px", textAlign: "center" }}>
+          {error.response?.data?.detail || error.message}
+        </div>
         <button
           onClick={() => refetch()}
           style={{
@@ -487,11 +527,10 @@ const Dashboard = () => {
 
   return (
     <div style={styles.layout}>
-      {/* Navbar - Now follows theme */}
       <header style={styles.navbar}>
         <div style={styles.navbarContent}>
           <h1 style={styles.navbarTitle}>
-            Techaven Admin
+            Techaven
           </h1>
           <span style={styles.navbarWelcome}>
             Welcome, {user?.name || 'Admin'}
@@ -499,7 +538,6 @@ const Dashboard = () => {
         </div>
       </header>
 
-      {/* Main Content Area */}
       <div style={styles.mainContainer}>
         <aside style={styles.sidebar}>
           <div>
@@ -527,7 +565,6 @@ const Dashboard = () => {
           </div>
 
           <div>
-            {/* Theme Toggle Button */}
             <div
               style={styles.themeToggle}
               onClick={toggleTheme}
@@ -542,7 +579,6 @@ const Dashboard = () => {
               {isDarkMode ? "Light Mode" : "Dark Mode"}
             </div>
 
-            {/* Logout Button */}
             <div
               style={{
                 ...styles.link,

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersAPI } from '../services/api';
-import { Edit, Trash2, Search, Plus } from 'lucide-react';
+import { Edit, Trash2, Search, Plus, RefreshCw } from 'lucide-react';
 
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -11,10 +11,21 @@ const Users = () => {
   });
   const queryClient = useQueryClient();
 
-  const { data: usersResponse, isLoading, error } = useQuery(
-    ['users', { search: searchTerm, ...filters }], 
-    () => usersAPI.getUsers({ search: searchTerm, ...filters })
-  );
+  const { 
+    data: usersResponse, 
+    isLoading, 
+    error,
+    refetch 
+  } = useQuery({
+    queryKey: ['users', { search: searchTerm, ...filters }], 
+    queryFn: () => usersAPI.getUsers({ search: searchTerm, ...filters }),
+    onError: (error) => {
+      console.error('Error fetching users:', error);
+    },
+    onSuccess: (data) => {
+      console.log('Users data received:', data);
+    }
+  });
 
   const deleteMutation = useMutation(usersAPI.deleteUser, {
     onSuccess: () => {
@@ -43,6 +54,10 @@ const Users = () => {
     }
   };
 
+  // Debug: Log the actual data structure
+  console.log('Users Response:', usersResponse);
+  console.log('Users Array:', usersResponse?.data);
+
   const styles = {
     container: {
       display: 'flex',
@@ -62,11 +77,31 @@ const Users = () => {
       margin: 0,
       fontFamily: "'Poppins', sans-serif",
     },
+    headerActions: {
+      display: 'flex',
+      gap: '12px',
+      alignItems: 'center',
+    },
     addButton: {
       display: 'flex',
       alignItems: 'center',
       gap: '8px',
       backgroundColor: '#004aad',
+      color: 'white',
+      border: 'none',
+      padding: '10px 16px',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontSize: '0.875rem',
+      fontWeight: '500',
+      fontFamily: "'Poppins', sans-serif",
+      transition: 'background-color 0.2s',
+    },
+    refreshButton: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      backgroundColor: '#6b7280',
       color: 'white',
       border: 'none',
       padding: '10px 16px',
@@ -133,6 +168,14 @@ const Users = () => {
       color: '#dc2626',
       padding: '12px 16px',
       borderRadius: '6px',
+    },
+    debugContainer: {
+      backgroundColor: '#f3f4f6',
+      border: '1px solid #d1d5db',
+      color: '#374151',
+      padding: '12px 16px',
+      borderRadius: '6px',
+      fontSize: '0.875rem',
     },
     tableContainer: {
       backgroundColor: 'white',
@@ -240,18 +283,19 @@ const Users = () => {
     {
       key: 'name',
       header: 'Name',
-      render: (user) => `${user.first_name} ${user.last_name}`,
+      render: (user) => `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A',
     },
     {
       key: 'email',
       header: 'Email',
+      render: (user) => user.email || 'N/A',
     },
     {
       key: 'role',
       header: 'Role',
       render: (user) => (
         <span style={{ ...styles.badge, ...styles.roleBadge[user.role] || styles.roleBadge.customer }}>
-          {user.role}
+          {user.role || 'customer'}
         </span>
       ),
     },
@@ -260,14 +304,14 @@ const Users = () => {
       header: 'Status',
       render: (user) => (
         <span style={{ ...styles.badge, ...styles.statusBadge[user.status] || styles.statusBadge.default }}>
-          {user.status}
+          {user.status || 'active'}
         </span>
       ),
     },
     {
       key: 'created_at',
       header: 'Joined',
-      render: (user) => new Date(user.created_at).toLocaleDateString(),
+      render: (user) => user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A',
     },
     {
       key: 'actions',
@@ -320,21 +364,73 @@ const Users = () => {
     },
   ];
 
-  const users = usersResponse?.data || [];
+  // Handle different data structures
+  const users = React.useMemo(() => {
+    if (!usersResponse) return [];
+    
+    // If response is an array
+    if (Array.isArray(usersResponse)) {
+      return usersResponse;
+    }
+    
+    // If response has data property
+    if (usersResponse.data && Array.isArray(usersResponse.data)) {
+      return usersResponse.data;
+    }
+    
+    // If response has users property
+    if (usersResponse.users && Array.isArray(usersResponse.users)) {
+      return usersResponse.users;
+    }
+    
+    // If response has results property
+    if (usersResponse.results && Array.isArray(usersResponse.results)) {
+      return usersResponse.results;
+    }
+    
+    console.warn('Unexpected data structure:', usersResponse);
+    return [];
+  }, [usersResponse]);
 
   return (
     <div style={styles.container}>
       <div style={styles.header}>
         <h1 style={styles.title}>Users Management</h1>
-        <button 
-          style={styles.addButton}
-          onMouseEnter={(e) => e.target.style.backgroundColor = '#003366'}
-          onMouseLeave={(e) => e.target.style.backgroundColor = '#004aad'}
-        >
-          <Plus size={16} />
-          <span>Add User</span>
-        </button>
+        <div style={styles.headerActions}>
+          <button 
+            style={styles.refreshButton}
+            onClick={() => refetch()}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#4b5563'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = '#6b7280'}
+          >
+            <RefreshCw size={16} />
+            <span>Refresh</span>
+          </button>
+          <button 
+            style={styles.addButton}
+            onMouseEnter={(e) => e.target.style.backgroundColor = '#003366'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = '#004aad'}
+          >
+            <Plus size={16} />
+            <span>Add User</span>
+          </button>
+        </div>
       </div>
+
+      {/* Debug Info - Remove in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={styles.debugContainer}>
+          <strong>Debug Info:</strong> 
+          <br />
+          Loading: {isLoading ? 'Yes' : 'No'}
+          <br />
+          Error: {error ? error.message : 'None'}
+          <br />
+          Users Count: {users.length}
+          <br />
+          Data Structure: {JSON.stringify(usersResponse ? Object.keys(usersResponse) : 'No data')}
+        </div>
+      )}
 
       {/* Search and Filters */}
       <div style={styles.searchContainer}>
@@ -384,7 +480,22 @@ const Users = () => {
       {/* Error State */}
       {error && (
         <div style={styles.errorContainer}>
-          Error loading users: {error.response?.data?.detail || error.message}
+          <strong>Error loading users:</strong> {error.response?.data?.detail || error.message}
+          <br />
+          <button 
+            onClick={() => refetch()}
+            style={{
+              marginTop: '8px',
+              padding: '8px 16px',
+              backgroundColor: '#004aad',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -416,14 +527,14 @@ const Users = () => {
                   <td colSpan={columns.length} style={styles.emptyCell}>
                     {searchTerm || filters.role || filters.status 
                       ? 'No users match your search criteria' 
-                      : 'No users found'
+                      : 'No users found in the database'
                     }
                   </td>
                 </tr>
               ) : (
                 users.map((user, index) => (
                   <tr 
-                    key={user.id} 
+                    key={user.id || index} 
                     style={styles.tableRow}
                     onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
                     onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
@@ -441,10 +552,11 @@ const Users = () => {
         </div>
         
         {/* Pagination */}
-        {usersResponse?.pagination && (
+        {users.length > 0 && (
           <div style={styles.pagination}>
             <div style={styles.paginationText}>
-              Showing {users.length} of {usersResponse.pagination.total} users
+              Showing {users.length} users
+              {usersResponse?.pagination?.total && ` of ${usersResponse.pagination.total}`}
             </div>
           </div>
         )}

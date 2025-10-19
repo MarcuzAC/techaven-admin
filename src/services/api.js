@@ -67,6 +67,33 @@ export const authAPI = {
 export const usersAPI = {
   getProfile: () => api.get('/users/profile'),
   getUser: (id) => api.get(`/users/${id}`),
+  
+  // ✅ ADDED: Get all users with search and filters
+  getUsers: async (params = {}) => {
+    const { search, role, status, skip = 0, limit = 100 } = params;
+    
+    const queryParams = new URLSearchParams();
+    queryParams.append('skip', skip);
+    queryParams.append('limit', limit);
+    
+    if (search) queryParams.append('search', search);
+    if (role) queryParams.append('type', role); // Map 'role' to 'type' for backend
+    
+    const response = await api.get(`/users?${queryParams}`);
+    return response.data;
+  },
+
+  // ✅ ADDED: Delete user
+  deleteUser: async (userId) => {
+    const response = await api.delete(`/users/${userId}`);
+    return response.data;
+  },
+
+  // ✅ ADDED: Update user status
+  updateUserStatus: async (userId, status) => {
+    const response = await api.patch(`/users/${userId}/status`, { status });
+    return response.data;
+  }
 };
 
 // ------------------------- SHOPS -------------------------
@@ -108,7 +135,61 @@ export const promotionsAPI = {
 
 // ------------------------- ADMIN METRICS -------------------------
 export const adminAPI = {
-  getMetrics: () => api.get('/admin/metrics'),
+  getMetrics: async () => {
+    try {
+      const response = await api.get('/admin/metrics');
+      console.log('📊 Metrics API Response:', response.data);
+      
+      // Handle different response structures
+      if (typeof response.data === 'string') {
+        console.warn('⚠️ Metrics endpoint returned string instead of JSON');
+        // If it's a string, try to parse it as JSON
+        try {
+          const parsedData = JSON.parse(response.data);
+          return parsedData;
+        } catch (parseError) {
+          console.error('❌ Failed to parse metrics response as JSON:', parseError);
+          // Return empty structure if parsing fails
+          return {
+            data: {
+              totalUsers: 0,
+              totalProducts: 0,
+              totalOrders: 0,
+              totalShops: 0,
+              totalRevenue: 0,
+              pendingShops: 0,
+              userGrowth: 0,
+              productGrowth: 0,
+              orderGrowth: 0,
+              shopGrowth: 0,
+              revenueGrowth: 0,
+              monthlyData: [],
+              categoryDistribution: []
+            }
+          };
+        }
+      }
+      
+      // If response.data is already an object but doesn't have the expected structure
+      if (response.data && typeof response.data === 'object') {
+        // If the data is directly in response.data (not nested under .data)
+        if (response.data.totalUsers !== undefined) {
+          return { data: response.data };
+        }
+        // If it's already in the expected { data: { ... } } structure
+        if (response.data.data) {
+          return response.data;
+        }
+      }
+      
+      console.warn('⚠️ Unexpected metrics response structure:', response.data);
+      return response.data;
+      
+    } catch (error) {
+      console.error('❌ Metrics API Error:', error);
+      throw error;
+    }
+  },
 };
 
 export default api;
