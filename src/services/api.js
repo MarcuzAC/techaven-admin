@@ -99,9 +99,30 @@ export const usersAPI = {
 // ------------------------- SHOPS -------------------------
 export const shopsAPI = {
   createShop: (data) => api.post('/shops/', data),
+  
+  // ✅ ADDED: Admin create shop
+  createShopAdmin: async (data, userId = null, verified = true) => {
+    const params = new URLSearchParams();
+    if (userId) params.append('user_id', userId);
+    params.append('verified', verified.toString());
+    
+    const response = await api.post(`/shops/admin/create?${params}`, data);
+    return response.data;
+  },
+  
   getShops: () => api.get('/shops/'),
   getShop: (id) => api.get(`/shops/${id}`),
   updateShop: (id, data) => api.put(`/shops/${id}`, data),
+  
+  // ✅ ADDED: Admin update shop
+  updateShopAdmin: async (id, data, verified = null) => {
+    const params = new URLSearchParams();
+    if (verified !== null) params.append('verified', verified.toString());
+    
+    const response = await api.put(`/shops/admin/${id}?${params}`, data);
+    return response.data;
+  },
+  
   getPending: () => api.get('/admin/shops/pending'),
   verifyShop: (id) => api.post(`/admin/shops/${id}/verify`),
 };

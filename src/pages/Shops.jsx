@@ -1,19 +1,29 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { shopsAPI } from '../services/api';
-import { Search, Filter, Plus, Eye, Edit, Trash2, CheckCircle, XCircle, Store, MapPin, Phone, User } from 'lucide-react';
+import { Search, Plus, Eye, Edit, Trash2, CheckCircle, XCircle, Store, MapPin, Phone, User, X } from 'lucide-react';
 
-const Shops = () => {
+const Shops = ({ isDarkMode }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     status: '',
     verification: ''
   });
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isLoadingCreate, setIsLoadingCreate] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    address: '',
+    phone: '',
+    user_id: '', // Optional - if empty, shop will be created for admin
+    verified: true
+  });
   const queryClient = useQueryClient();
 
-  const { data: shopsResponse, isLoading, error } = useQuery(
-    ['shops', { search: searchTerm, ...filters }], 
-    () => shopsAPI.getShops({ search: searchTerm, ...filters })
+  const { data: shopsResponse, isLoading, error, refetch } = useQuery(
+    ['shops'], 
+    () => shopsAPI.getShops()
   );
 
   const deleteMutation = useMutation(shopsAPI.deleteShop, {
@@ -34,17 +44,114 @@ const Shops = () => {
     }
   });
 
-  const rejectMutation = useMutation(
-    ({ id, reason }) => shopsAPI.rejectShop(id, reason),
+  const updateShopMutation = useMutation(
+    ({ id, data }) => shopsAPI.updateShopAdmin(id, data),
     {
       onSuccess: () => {
         queryClient.invalidateQueries(['shops']);
       },
       onError: (error) => {
-        alert(`Error rejecting shop: ${error.response?.data?.detail || 'Unknown error'}`);
+        alert(`Error updating shop: ${error.response?.data?.detail || 'Unknown error'}`);
       }
     }
   );
+
+  const handleCreateShop = async (e) => {
+    e.preventDefault();
+    setIsLoadingCreate(true);
+
+    try {
+      // Remove empty user_id if provided
+      const submitData = { ...formData };
+      if (!submitData.user_id.trim()) {
+        delete submitData.user_id;
+      }
+
+      await shopsAPI.createShopAdmin(submitData);
+      
+      // Reset form and close modal
+      setFormData({
+        name: '',
+        description: '',
+        address: '',
+        phone: '',
+        user_id: '',
+        verified: true
+      });
+      setIsCreateModalOpen(false);
+      
+      // Refresh shops list
+      refetch();
+      
+      alert('Shop created successfully!');
+    } catch (error) {
+      console.error('Error creating shop:', error);
+      alert(`Error creating shop: ${error.response?.data?.detail || 'Unknown error'}`);
+    } finally {
+      setIsLoadingCreate(false);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleToggleVerification = (shop) => {
+    const newVerifiedStatus = !shop.verified;
+    if (window.confirm(`Are you sure you want to ${newVerifiedStatus ? 'verify' : 'unverify'} this shop?`)) {
+      updateShopMutation.mutate({
+        id: shop.id,
+        data: {
+          name: shop.name,
+          description: shop.description,
+          address: shop.address,
+          phone: shop.phone
+        },
+        verified: newVerifiedStatus
+      });
+    }
+  };
+
+  const handleDeleteShop = (shopId, shopName) => {
+    if (window.confirm(`Are you sure you want to delete the shop "${shopName}"? This action cannot be undone.`)) {
+      deleteMutation.mutate(shopId);
+    }
+  };
+
+  // Filter shops based on search term and filters
+  const filteredShops = React.useMemo(() => {
+    if (!shopsResponse) return [];
+    
+    let shops = Array.isArray(shopsResponse) ? shopsResponse : shopsResponse.data || [];
+    
+    // Apply search filter
+    if (searchTerm) {
+      shops = shops.filter(shop => 
+        shop.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        shop.address?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        shop.phone?.includes(searchTerm)
+      );
+    }
+    
+    // Apply status filter
+    if (filters.status) {
+      shops = shops.filter(shop => shop.status?.toLowerCase() === filters.status.toLowerCase());
+    }
+    
+    // Apply verification filter
+    if (filters.verification) {
+      if (filters.verification === 'verified') {
+        shops = shops.filter(shop => shop.verified === true);
+      } else if (filters.verification === 'pending') {
+        shops = shops.filter(shop => shop.verified === false);
+      }
+    }
+    
+    return shops;
+  }, [shopsResponse, searchTerm, filters]);
 
   const styles = {
     container: {
@@ -52,6 +159,7 @@ const Shops = () => {
       flexDirection: 'column',
       gap: '24px',
       fontFamily: "'Poppins', sans-serif",
+      color: isDarkMode ? '#ffffff' : '#1f2937',
     },
     header: {
       display: 'flex',
@@ -61,7 +169,7 @@ const Shops = () => {
     title: {
       fontSize: '1.5rem',
       fontWeight: 'bold',
-      color: '#1f2937',
+      color: isDarkMode ? '#ffffff' : '#1f2937',
       margin: 0,
       fontFamily: "'Poppins', sans-serif",
     },
@@ -87,11 +195,12 @@ const Shops = () => {
       marginBottom: '16px',
     },
     statCard: {
-      backgroundColor: 'white',
+      backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
       padding: '16px',
       borderRadius: '8px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
       textAlign: 'center',
+      border: isDarkMode ? '1px solid #404040' : 'none',
     },
     statValue: {
       fontSize: '1.5rem',
@@ -101,14 +210,15 @@ const Shops = () => {
     },
     statLabel: {
       fontSize: '0.875rem',
-      color: '#6b7280',
+      color: isDarkMode ? '#a0a0a0' : '#6b7280',
       margin: 0,
     },
     searchContainer: {
-      backgroundColor: 'white',
+      backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
       padding: '16px',
       borderRadius: '8px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+      border: isDarkMode ? '1px solid #404040' : 'none',
     },
     searchRow: {
       display: 'flex',
@@ -124,7 +234,7 @@ const Shops = () => {
       left: '12px',
       top: '50%',
       transform: 'translateY(-50%)',
-      color: '#9ca3af',
+      color: isDarkMode ? '#a0a0a0' : '#9ca3af',
       width: '16px',
       height: '16px',
     },
@@ -134,11 +244,13 @@ const Shops = () => {
       paddingRight: '16px',
       paddingTop: '8px',
       paddingBottom: '8px',
-      border: '1px solid #d1d5db',
+      border: `1px solid ${isDarkMode ? '#404040' : '#d1d5db'}`,
       borderRadius: '6px',
       fontSize: '0.875rem',
       fontFamily: "'Poppins', sans-serif",
       outline: 'none',
+      backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
+      color: isDarkMode ? '#ffffff' : '#1f2937',
     },
     filtersContainer: {
       display: 'flex',
@@ -147,12 +259,13 @@ const Shops = () => {
     },
     select: {
       padding: '8px 12px',
-      border: '1px solid #d1d5db',
+      border: `1px solid ${isDarkMode ? '#404040' : '#d1d5db'}`,
       borderRadius: '6px',
       fontSize: '0.875rem',
       fontFamily: "'Poppins', sans-serif",
       outline: 'none',
-      backgroundColor: 'white',
+      backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
+      color: isDarkMode ? '#ffffff' : '#1f2937',
       minWidth: '150px',
     },
     errorContainer: {
@@ -163,36 +276,37 @@ const Shops = () => {
       borderRadius: '6px',
     },
     tableContainer: {
-      backgroundColor: 'white',
+      backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
       borderRadius: '8px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
       overflow: 'hidden',
+      border: isDarkMode ? '1px solid #404040' : 'none',
     },
     table: {
       width: '100%',
       borderCollapse: 'collapse',
     },
     tableHeader: {
-      backgroundColor: '#f9fafb',
+      backgroundColor: isDarkMode ? '#1a1a1a' : '#f9fafb',
     },
     tableHeaderCell: {
       padding: '12px 16px',
       textAlign: 'left',
       fontSize: '0.75rem',
       fontWeight: '600',
-      color: '#6b7280',
+      color: isDarkMode ? '#a0a0a0' : '#6b7280',
       textTransform: 'uppercase',
       letterSpacing: '0.05em',
       fontFamily: "'Poppins', sans-serif",
     },
     tableRow: {
-      borderBottom: '1px solid #e5e7eb',
+      borderBottom: `1px solid ${isDarkMode ? '#404040' : '#e5e7eb'}`,
       transition: 'background-color 0.2s',
     },
     tableCell: {
       padding: '16px',
       fontSize: '0.875rem',
-      color: '#1f2937',
+      color: isDarkMode ? '#ffffff' : '#1f2937',
       fontFamily: "'Poppins', sans-serif",
     },
     loadingCell: {
@@ -211,7 +325,7 @@ const Shops = () => {
     emptyCell: {
       padding: '32px 16px',
       textAlign: 'center',
-      color: '#6b7280',
+      color: isDarkMode ? '#a0a0a0' : '#6b7280',
     },
     badge: {
       padding: '4px 8px',
@@ -270,7 +384,7 @@ const Shops = () => {
       height: '40px',
       borderRadius: '6px',
       objectFit: 'cover',
-      backgroundColor: '#f3f4f6',
+      backgroundColor: isDarkMode ? '#404040' : '#f3f4f6',
     },
     shopDetails: {
       display: 'flex',
@@ -278,7 +392,7 @@ const Shops = () => {
     },
     shopName: {
       fontWeight: '500',
-      color: '#1f2937',
+      color: isDarkMode ? '#ffffff' : '#1f2937',
       margin: 0,
     },
     shopLocation: {
@@ -286,7 +400,7 @@ const Shops = () => {
       alignItems: 'center',
       gap: '4px',
       fontSize: '0.75rem',
-      color: '#6b7280',
+      color: isDarkMode ? '#a0a0a0' : '#6b7280',
       margin: 0,
     },
     contactInfo: {
@@ -299,7 +413,7 @@ const Shops = () => {
       alignItems: 'center',
       gap: '4px',
       fontSize: '0.75rem',
-      color: '#6b7280',
+      color: isDarkMode ? '#a0a0a0' : '#6b7280',
     },
     metricsContainer: {
       display: 'flex',
@@ -310,7 +424,7 @@ const Shops = () => {
       flexDirection: 'column',
       alignItems: 'center',
       padding: '8px',
-      backgroundColor: '#f8fafc',
+      backgroundColor: isDarkMode ? '#404040' : '#f8fafc',
       borderRadius: '4px',
       minWidth: '60px',
     },
@@ -321,7 +435,123 @@ const Shops = () => {
     },
     metricLabel: {
       fontSize: '0.7rem',
-      color: '#6b7280',
+      color: isDarkMode ? '#a0a0a0' : '#6b7280',
+    },
+    // Modal Styles
+    modalOverlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+    },
+    modal: {
+      backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
+      padding: '24px',
+      borderRadius: '12px',
+      width: '90%',
+      maxWidth: '500px',
+      maxHeight: '90vh',
+      overflowY: 'auto',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    },
+    modalHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '20px',
+    },
+    modalTitle: {
+      fontSize: '1.25rem',
+      fontWeight: 'bold',
+      color: isDarkMode ? '#ffffff' : '#1f2937',
+      margin: 0,
+    },
+    closeButton: {
+      background: 'none',
+      border: 'none',
+      color: isDarkMode ? '#a0a0a0' : '#6b7280',
+      cursor: 'pointer',
+      padding: '4px',
+    },
+    form: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '16px',
+    },
+    inputGroup: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '6px',
+    },
+    label: {
+      fontSize: '0.875rem',
+      fontWeight: '500',
+      color: isDarkMode ? '#a0a0a0' : '#6b7280',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+    },
+    input: {
+      padding: '10px 12px',
+      border: `1px solid ${isDarkMode ? '#404040' : '#d1d5db'}`,
+      borderRadius: '6px',
+      fontSize: '0.875rem',
+      backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
+      color: isDarkMode ? '#ffffff' : '#1f2937',
+      outline: 'none',
+      transition: 'border-color 0.2s',
+    },
+    textarea: {
+      padding: '10px 12px',
+      border: `1px solid ${isDarkMode ? '#404040' : '#d1d5db'}`,
+      borderRadius: '6px',
+      fontSize: '0.875rem',
+      backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
+      color: isDarkMode ? '#ffffff' : '#1f2937',
+      outline: 'none',
+      minHeight: '80px',
+      resize: 'vertical',
+      fontFamily: "'Poppins', sans-serif",
+    },
+    checkboxGroup: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    },
+    checkbox: {
+      width: '16px',
+      height: '16px',
+    },
+    checkboxLabel: {
+      fontSize: '0.875rem',
+      color: isDarkMode ? '#a0a0a0' : '#6b7280',
+    },
+    submitButton: {
+      backgroundColor: '#004aad',
+      color: 'white',
+      border: 'none',
+      padding: '12px 20px',
+      borderRadius: '8px',
+      fontSize: '0.875rem',
+      fontWeight: '500',
+      cursor: 'pointer',
+      transition: 'background-color 0.2s',
+      marginTop: '10px',
+    },
+    loadingButton: {
+      opacity: 0.7,
+      cursor: 'not-allowed',
+    },
+    helperText: {
+      fontSize: '0.75rem',
+      color: isDarkMode ? '#a0a0a0' : '#6b7280',
+      fontStyle: 'italic',
     },
   };
 
@@ -356,7 +586,7 @@ const Shops = () => {
         <div style={styles.contactInfo}>
           <div style={styles.contactItem}>
             <User size={10} />
-            {shop.owner_name || 'Unknown Owner'}
+            {shop.owner_name || shop.user_id || 'Unknown Owner'}
           </div>
           <div style={styles.contactItem}>
             <Phone size={10} />
@@ -393,7 +623,7 @@ const Shops = () => {
           ...styles.badge, 
           ...styles.statusBadge[shop.status?.toLowerCase()] || styles.statusBadge.pending 
         }}>
-          {shop.status || 'pending'}
+          {shop.status || 'active'}
         </span>
       ),
     },
@@ -403,16 +633,16 @@ const Shops = () => {
       render: (shop) => (
         <span style={{ 
           ...styles.badge, 
-          ...styles.verificationBadge[shop.verification_status?.toLowerCase()] || styles.verificationBadge.pending 
+          ...(shop.verified ? styles.verificationBadge.verified : styles.verificationBadge.pending)
         }}>
-          {shop.verification_status || 'pending'}
+          {shop.verified ? 'verified' : 'pending'}
         </span>
       ),
     },
     {
       key: 'created_at',
       header: 'Registered',
-      render: (shop) => new Date(shop.created_at).toLocaleDateString(),
+      render: (shop) => shop.created_at ? new Date(shop.created_at).toLocaleDateString() : 'N/A',
     },
     {
       key: 'actions',
@@ -445,45 +675,18 @@ const Shops = () => {
             <Edit size={16} />
           </button>
           
-          {shop.verification_status !== 'verified' && (
-            <button
-              onClick={() => {
-                if (window.confirm('Verify this shop?')) {
-                  verifyMutation.mutate(shop.id);
-                }
-              }}
-              style={{ ...styles.actionButton, ...styles.verifyButton }}
-              title="Verify shop"
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#dcfce7'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              <CheckCircle size={16} />
-            </button>
-          )}
-          
-          {shop.verification_status !== 'rejected' && (
-            <button
-              onClick={() => {
-                const reason = prompt('Reason for rejection:');
-                if (reason) {
-                  rejectMutation.mutate({ id: shop.id, reason });
-                }
-              }}
-              style={{ ...styles.actionButton, ...styles.rejectButton }}
-              title="Reject shop"
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#fecaca'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
-            >
-              <XCircle size={16} />
-            </button>
-          )}
+          <button
+            onClick={() => handleToggleVerification(shop)}
+            style={{ ...styles.actionButton, ...(shop.verified ? styles.rejectButton : styles.verifyButton) }}
+            title={shop.verified ? 'Unverify shop' : 'Verify shop'}
+            onMouseEnter={(e) => e.target.style.backgroundColor = shop.verified ? '#fecaca' : '#dcfce7'}
+            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+          >
+            {shop.verified ? <XCircle size={16} /> : <CheckCircle size={16} />}
+          </button>
           
           <button
-            onClick={() => {
-              if (window.confirm('Are you sure you want to delete this shop? This action cannot be undone.')) {
-                deleteMutation.mutate(shop.id);
-              }
-            }}
+            onClick={() => handleDeleteShop(shop.id, shop.name)}
             style={{ ...styles.actionButton, ...styles.deleteButton }}
             title="Delete shop"
             onMouseEnter={(e) => e.target.style.backgroundColor = '#fecaca'}
@@ -496,14 +699,14 @@ const Shops = () => {
     },
   ];
 
-  const shops = shopsResponse?.data || [];
-  const stats = shopsResponse?.stats || {};
-
+  const shops = filteredShops;
+  
+  // Calculate stats from filtered shops
   const shopStats = [
-    { label: 'Total Shops', value: stats.total || shops.length },
-    { label: 'Verified', value: stats.verified || 0 },
-    { label: 'Pending', value: stats.pending || 0 },
-    { label: 'Active', value: stats.active || 0 },
+    { label: 'Total Shops', value: shops.length },
+    { label: 'Verified', value: shops.filter(shop => shop.verified).length },
+    { label: 'Pending', value: shops.filter(shop => !shop.verified).length },
+    { label: 'Active', value: shops.filter(shop => shop.status === 'active').length },
   ];
 
   if (isLoading) {
@@ -532,8 +735,9 @@ const Shops = () => {
     <div style={styles.container}>
       <div style={styles.header}>
         <h1 style={styles.title}>Shops Management</h1>
-        <button 
+        <button
           style={styles.addButton}
+          onClick={() => setIsCreateModalOpen(true)}
           onMouseEnter={(e) => e.target.style.backgroundColor = '#003366'}
           onMouseLeave={(e) => e.target.style.backgroundColor = '#004aad'}
         >
@@ -564,7 +768,7 @@ const Shops = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               style={styles.searchInput}
               onFocus={(e) => e.target.style.borderColor = '#004aad'}
-              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+              onBlur={(e) => e.target.style.borderColor = isDarkMode ? '#404040' : '#d1d5db'}
             />
           </div>
           
@@ -574,7 +778,7 @@ const Shops = () => {
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               style={styles.select}
               onFocus={(e) => e.target.style.borderColor = '#004aad'}
-              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+              onBlur={(e) => e.target.style.borderColor = isDarkMode ? '#404040' : '#d1d5db'}
             >
               <option value="">All Status</option>
               <option value="active">Active</option>
@@ -588,12 +792,11 @@ const Shops = () => {
               onChange={(e) => setFilters({ ...filters, verification: e.target.value })}
               style={styles.select}
               onFocus={(e) => e.target.style.borderColor = '#004aad'}
-              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+              onBlur={(e) => e.target.style.borderColor = isDarkMode ? '#404040' : '#d1d5db'}
             >
               <option value="">All Verification</option>
               <option value="verified">Verified</option>
               <option value="pending">Pending</option>
-              <option value="rejected">Rejected</option>
             </select>
           </div>
         </div>
@@ -630,8 +833,8 @@ const Shops = () => {
                   <tr 
                     key={shop.id} 
                     style={styles.tableRow}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = '#f9fafb'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = 'white'}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = isDarkMode ? '#1a1a1a' : '#f9fafb'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = isDarkMode ? '#2d2d2d' : 'white'}
                   >
                     {columns.map((column) => (
                       <td key={column.key} style={styles.tableCell}>
@@ -646,14 +849,130 @@ const Shops = () => {
         </div>
         
         {/* Pagination */}
-        {shopsResponse?.pagination && (
-          <div style={{ padding: '16px', borderTop: '1px solid #e5e7eb', textAlign: 'center' }}>
-            <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-              Showing {shops.length} of {shopsResponse.pagination.total} shops
-            </div>
+        <div style={{ padding: '16px', borderTop: `1px solid ${isDarkMode ? '#404040' : '#e5e7eb'}`, textAlign: 'center' }}>
+          <div style={{ color: isDarkMode ? '#a0a0a0' : '#6b7280', fontSize: '0.875rem' }}>
+            Showing {shops.length} shops
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Create Shop Modal */}
+      {isCreateModalOpen && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modal}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>Create New Shop</h2>
+              <button
+                style={styles.closeButton}
+                onClick={() => setIsCreateModalOpen(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateShop} style={styles.form}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>
+                  <Store size={14} />
+                  Shop Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  style={styles.input}
+                  placeholder="Enter shop name"
+                />
+              </div>
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>
+                  <Store size={14} />
+                  Description
+                </label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  style={styles.textarea}
+                  placeholder="Enter shop description"
+                />
+              </div>
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>
+                  <MapPin size={14} />
+                  Address *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.address}
+                  onChange={(e) => handleInputChange('address', e.target.value)}
+                  style={styles.input}
+                  placeholder="Enter shop address"
+                />
+              </div>
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>
+                  <Phone size={14} />
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  style={styles.input}
+                  placeholder="Enter phone number"
+                />
+              </div>
+
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>
+                  <User size={14} />
+                  User ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={formData.user_id}
+                  onChange={(e) => handleInputChange('user_id', e.target.value)}
+                  style={styles.input}
+                  placeholder="Leave empty to create for yourself"
+                />
+                <span style={styles.helperText}>
+                  Leave empty to create the shop for your admin account
+                </span>
+              </div>
+
+              <div style={styles.checkboxGroup}>
+                <input
+                  type="checkbox"
+                  checked={formData.verified}
+                  onChange={(e) => handleInputChange('verified', e.target.checked)}
+                  style={styles.checkbox}
+                />
+                <label style={styles.checkboxLabel}>
+                  Verified Shop
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                style={{
+                  ...styles.submitButton,
+                  ...(isLoadingCreate && styles.loadingButton)
+                }}
+                disabled={isLoadingCreate}
+                onMouseEnter={(e) => !isLoadingCreate && (e.target.style.backgroundColor = '#003366')}
+                onMouseLeave={(e) => !isLoadingCreate && (e.target.style.backgroundColor = '#004aad')}
+              >
+                {isLoadingCreate ? 'Creating...' : 'Create Shop'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
