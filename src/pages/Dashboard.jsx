@@ -530,7 +530,6 @@ const Dashboard = () => {
       <header style={styles.navbar}>
         <div style={styles.navbarContent}>
           <h1 style={styles.navbarTitle}>
-            Techaven
           </h1>
           <span style={styles.navbarWelcome}>
             Welcome, {user?.name || 'Admin'}
